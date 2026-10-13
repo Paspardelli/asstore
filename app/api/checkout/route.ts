@@ -59,7 +59,7 @@ export async function POST(req: Request) {
     // 3) Preços e tamanhos vêm do BANCO, nunca do navegador
     const ids = Array.from(new Set(itens.map((i) => i.id)));
     const { data, error } = await sb.from("produtos").select("id,nome,preco,tamanhos,cores").eq("ativo", true).in("id", ids);
-    if (error || !data) return erro("Erro ao consultar produtos.", 500);
+    if (error || !data) { console.error("checkout produtos:", error?.message, error?.code); return erro("Erro ao consultar produtos.", 500); }
     const mapa = new Map((data as Prod[]).map((p) => [p.id, p]));
 
     const linhas: { id: number; nome: string; t: string; c: string; q: number; cent: number }[] = [];
