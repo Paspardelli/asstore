@@ -3,6 +3,20 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 
 export const runtime = "nodejs";
 
+// Dá baixa no estoque dos itens de um pedido recém-pago (operação atômica no banco).
+async function baixarEstoque(sb: ReturnType<typeof supabaseAdmin>, pedidoId: string) {
+  const { data: itens } = await sb.from("itens_pedido").select("produto_id,nome,tamanho,quantidade").eq("pedido_id", pedidoId);
+  const faltou: string[] = [];
+  for (const it of itens ?? []) {
+    if (it.produto_id == null) continue;
+    const { data: ok, error } = await sb.rpc("baixar_estoque", { p_produto: it.produto_id, p_tamanho: it.tamanho, p_qtd: it.quantidade });
+    if (error || ok !== true) faltou.push(`${it.nome} (${it.tamanho})`);
+  }
+  if (faltou.length > 0) {
+    await sb.from("pedidos").update({ obs: `ESTOQUE INSUFICIENTE: ${faltou.join(", ")}. Reembolse ou resolva com o cliente.` }).eq("id", pedidoId);
+  }
+}
+
 // O Mercado Pago avisa aqui quando o pagamento muda. Só confiamos se a assinatura for válida.
 export async function POST(req: Request) {
   const secret = process.env.MP_WEBHOOK_SECRET;
@@ -58,7 +72,11 @@ export async function POST(req: Request) {
     };
     const novo = mapa[p.status ?? ""] ?? "pendente";
     const jaPago = ped.status === "pago";
-    if (novo !== ped.status && !(jaPago && (novo === "pendente" || novo === "cancelado"))) {
+    if (novo === "pago" && !jaPago) {
+      // Só quem de fato muda o status para "pago" dá baixa (evita baixa dupla se o aviso chegar repetido).
+      const { data: mudou } = await sb.from("pedidos").update({ status: "pago", mp_payment_id: dataId }).neq("status", "pago").eq("id", ped.id).select("id");
+      if (mudou && mudou.length > 0) await baixarEstoque(sb, ped.id);
+    } else if (novo !== ped.status && !(jaPago && (novo === "pendente" || novo === "cancelado"))) {
       await sb.from("pedidos").update({ status: novo, mp_payment_id: dataId }).eq("id", ped.id);
     }
     return new Response("ok", { status: 200 });
