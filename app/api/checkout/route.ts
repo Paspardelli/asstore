@@ -4,7 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 export const runtime = "nodejs";
 
 type ItemIn = { id: number; t: string; c?: string; q: number };
-type Prod = { id: number; nome: string; preco: number | string; tamanhos: string[]; cores: { nome: string }[] | null };
+type Prod = { id: number; nome: string; preco: number | string; estoque: Record<string, number | string> | null; cores: { nome: string }[] | null };
 
 const erro = (msg: string, status: number) => NextResponse.json({ erro: msg }, { status });
 
@@ -58,14 +58,24 @@ export async function POST(req: Request) {
 
     // 3) Preços e tamanhos vêm do BANCO, nunca do navegador
     const ids = Array.from(new Set(itens.map((i) => i.id)));
-    const { data, error } = await sb.from("produtos").select("id,nome,preco,tamanhos,cores").eq("ativo", true).in("id", ids);
-    if (error || !data) { console.error("checkout produtos:", error?.message, error?.code); return erro("Erro ao consultar produtos.", 500); }
+    const { data, error } = await sb.from("produtos").select("id,nome,preco,estoque,cores").eq("ativo", true).in("id", ids);
+    if (error || !data) {
+      console.error("checkout produtos:", error?.message, error?.code);
+      return erro("Erro ao consultar produtos.", 500);
+    }
     const mapa = new Map((data as Prod[]).map((p) => [p.id, p]));
 
     const linhas: { id: number; nome: string; t: string; c: string; q: number; cent: number }[] = [];
+    const pedidoPorTam = new Map<string, number>();
     for (const i of itens) {
       const p = mapa.get(i.id);
-      if (!p || !p.tamanhos.includes(i.t)) return erro("Um item da sacola não está mais disponível.", 409);
+      const disp = Math.floor(Number(p?.estoque?.[i.t] ?? 0));
+      if (!p || !(disp > 0)) return erro("Um item da sacola não está mais disponível.", 409);
+      // Estoque é por tamanho (somando as cores do mesmo tamanho)
+      const chave = `${i.id}|${i.t}`;
+      const soma = (pedidoPorTam.get(chave) ?? 0) + i.q;
+      pedidoPorTam.set(chave, soma);
+      if (soma > disp) return erro(`${p.nome} (${i.t}): só temos ${disp} em estoque.`, 409);
       const cores = Array.isArray(p.cores) ? p.cores : [];
       let c = "";
       if (cores.length > 0) {
@@ -110,7 +120,6 @@ export async function POST(req: Request) {
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", "X-Idempotency-Key": ped.id },
       body: JSON.stringify({
         items: mpItens,
-        payer: { name: nome, email },
         external_reference: ped.id,
         notification_url: `${site}/api/webhook`,
         back_urls: {
