@@ -89,6 +89,8 @@ export default function Store({ produtos }: { produtos: Produto[] }) {
     if (!sel) return;
     if (sel.cores.length > 0 && !cor) return setAviso("Escolha uma cor para continuar.");
     if (!tam) return setAviso("Escolha um tamanho para continuar.");
+    const noCarrinho = sacola.filter((i) => i.id === sel.id && i.t === tam).reduce((a, i) => a + i.q, 0);
+    if (noCarrinho + 1 > (sel.estoque[tam] ?? 0)) return setAviso("Essa peça já está na sua sacola e não temos mais unidades.");
     const c = cor ?? "";
     setSacola((s) => {
       const f = s.find((i) => i.id === sel.id && i.t === tam && (i.c ?? "") === c);
@@ -100,7 +102,17 @@ export default function Store({ produtos }: { produtos: Produto[] }) {
   }
 
   function mudar(k: number, d: number) {
-    setSacola((s) => s.map((i, n) => (n === k ? { ...i, q: i.q + d } : i)).filter((i) => i.q > 0));
+    setSacola((s) => {
+      const it = s[k];
+      if (!it) return s;
+      if (d > 0) {
+        // não deixa passar do estoque (somando as cores do mesmo tamanho)
+        const p = produtos.find((x) => x.id === it.id);
+        const jaTem = s.filter((x) => x.id === it.id && x.t === it.t).reduce((a, x) => a + x.q, 0);
+        if (!p || jaTem + d > (p.estoque[it.t] ?? 0)) return s;
+      }
+      return s.map((i, n) => (n === k ? { ...i, q: i.q + d } : i)).filter((i) => i.q > 0);
+    });
   }
 
   function mover(d: number) {
@@ -177,9 +189,9 @@ export default function Store({ produtos }: { produtos: Produto[] }) {
           </div>
           <div className="grid">
             {lista.map((p) => (
-              <button key={p.id} className="card" onClick={() => abrirProduto(p)}>
+              <button key={p.id} className={`card${p.tamanhos.length === 0 ? " esg" : ""}`} onClick={() => abrirProduto(p)}>
                 <div className="ph" style={{ background: `linear-gradient(160deg,${p.cor},#000 120%)` }}>
-                  {p.novo && <span className="tag">Novo</span>}
+                  {p.tamanhos.length === 0 ? <span className="tag off">Esgotado</span> : p.novo && <span className="tag">Novo</span>}
                   {p.imagens[0] ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={p.imagens[0]} alt={p.nome} loading="lazy" decoding="async" />
@@ -268,13 +280,19 @@ export default function Store({ produtos }: { produtos: Produto[] }) {
             </>
           )}
 
-          <p className="lbl">Tamanho</p>
-          <div className="sizes">
-            {sel.tamanhos.map((t) => (
-              <button key={t} className="sz" aria-pressed={t === tam} onClick={() => setTam(t)}>{t}</button>
-            ))}
-          </div>
-          <button className="btn" onClick={adicionar}>Adicionar à sacola</button>
+          {sel.tamanhos.length === 0 ? (
+            <button className="btn" disabled>Esgotado</button>
+          ) : (
+            <>
+              <p className="lbl">Tamanho</p>
+              <div className="sizes">
+                {sel.tamanhos.map((t) => (
+                  <button key={t} className="sz" aria-pressed={t === tam} onClick={() => setTam(t)}>{t}</button>
+                ))}
+              </div>
+              <button className="btn" onClick={adicionar}>Adicionar à sacola</button>
+            </>
+          )}
           <p className="err" role="alert">{aviso}</p>
         </div>
       )}
