@@ -100,3 +100,8 @@ input{width:100%;padding:13px 14px;border-radius:14px;border:1px solid var(--lin
 .lbn{top:50%;margin-top:-22px}
 .lbn.prev{left:10px}.lbn.next{right:10px}
 .lbc{position:absolute;bottom:calc(16px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);color:#fff;font-size:13px;background:rgba(0,0,0,.6);padding:6px 14px;border-radius:999px;white-space:nowrap}
+
+.tag.off{background:#111}
+.card.esg{opacity:.65}
+.card.esg .ph img{filter:grayscale(1)}
+.btn:disabled{background:#999;cursor:not-allowed}
