@@ -8,6 +8,7 @@ export type Produto = {
   categoria: string;
   preco: number;
   tamanhos: string[]; // só os tamanhos COM ESTOQUE (derivado de estoque)
+  todos: string[]; // todos os tamanhos cadastrados (inclui os esgotados)
   estoque: Record<string, number>; // quantidade por tamanho, ex.: {"G":1}
   cores: Cor[];
   cor: string; // cor de fundo do cartão quando não há foto
@@ -54,7 +55,7 @@ const C2: Cor[] = [
 ];
 
 // Mostrados enquanto o Supabase não estiver configurado (o site nunca quebra).
-const DEMO_BASE: Omit<Produto, "estoque">[] = [
+const DEMO_BASE: Omit<Produto, "estoque" | "todos">[] = [
   { id: 1, nome: "Camiseta Oversized Crown", categoria: "Camisetas", preco: 89.9, tamanhos: ["P", "M", "G", "GG"], cores: C3, cor: "#e10600", novo: true, imagens: demoImgs("#e10600") },
   { id: 2, nome: "Camiseta Boxy AS Preta", categoria: "Camisetas", preco: 79.9, tamanhos: ["M", "G", "GG"], cores: [], cor: "#1a1a1a", novo: false, imagens: demoImgs("#2a2a2a") },
   { id: 3, nome: "Moletom Hoodie Royal", categoria: "Moletons", preco: 199.9, tamanhos: ["M", "G", "GG"], cores: C2, cor: "#5c0200", novo: true, imagens: demoImgs("#7a0300") },
@@ -65,9 +66,9 @@ const DEMO_BASE: Omit<Produto, "estoque">[] = [
   { id: 8, nome: "Corrente Crown Steel", categoria: "Acessórios", preco: 59.9, tamanhos: ["Único"], cores: [], cor: "#d9d9d6", novo: false, imagens: demoImgs("#6b6b66") },
 ];
 
-const DEMO: Produto[] = DEMO_BASE.map((p) => ({ ...p, estoque: Object.fromEntries(p.tamanhos.map((t) => [t, 3])) }));
+const DEMO: Produto[] = DEMO_BASE.map((p) => ({ ...p, todos: p.tamanhos, estoque: Object.fromEntries(p.tamanhos.map((t) => [t, 3])) }));
 
-type Row = Omit<Produto, "imagens" | "cores" | "preco" | "estoque" | "tamanhos"> & {
+type Row = Omit<Produto, "imagens" | "cores" | "preco" | "estoque" | "tamanhos" | "todos"> & {
   estoque?: unknown;
   preco: number | string;
   imagens?: string[] | null;
@@ -91,6 +92,7 @@ export async function getProdutos(): Promise<Produto[]> {
       categoria: p.categoria,
       preco: Number(p.preco),
       estoque,
+      todos: ordenarTamanhos(Object.keys(estoque)),
       tamanhos: ordenarTamanhos(Object.keys(estoque).filter((t) => estoque[t] > 0)),
       cores: Array.isArray(p.cores) ? p.cores : [],
       cor: p.cor,
