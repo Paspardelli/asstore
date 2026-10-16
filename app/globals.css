@@ -105,3 +105,4 @@ input{width:100%;padding:13px 14px;border-radius:14px;border:1px solid var(--lin
 .card.esg{opacity:.65}
 .card.esg .ph img{filter:grayscale(1)}
 .btn:disabled{background:#999;cursor:not-allowed}
+.sz.off{opacity:.4;text-decoration:line-through;cursor:not-allowed}
