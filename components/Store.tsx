@@ -286,9 +286,12 @@ export default function Store({ produtos }: { produtos: Produto[] }) {
             <>
               <p className="lbl">Tamanho</p>
               <div className="sizes">
-                {sel.tamanhos.map((t) => (
-                  <button key={t} className="sz" aria-pressed={t === tam} onClick={() => setTam(t)}>{t}</button>
-                ))}
+                {sel.todos.map((t) => {
+                  const off = !(sel.estoque[t] > 0);
+                  return (
+                    <button key={t} className={`sz${off ? " off" : ""}`} disabled={off} aria-pressed={t === tam} onClick={() => setTam(t)}>{t}</button>
+                  );
+                })}
               </div>
               <button className="btn" onClick={adicionar}>Adicionar à sacola</button>
             </>
