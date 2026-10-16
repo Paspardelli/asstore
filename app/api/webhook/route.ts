@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { enviarEmailsPedido } from "@/lib/email";
 
 export const runtime = "nodejs";
 
@@ -75,7 +76,14 @@ export async function POST(req: Request) {
     if (novo === "pago" && !jaPago) {
       // Só quem de fato muda o status para "pago" dá baixa (evita baixa dupla se o aviso chegar repetido).
       const { data: mudou } = await sb.from("pedidos").update({ status: "pago", mp_payment_id: dataId }).neq("status", "pago").eq("id", ped.id).select("id");
-      if (mudou && mudou.length > 0) await baixarEstoque(sb, ped.id);
+      if (mudou && mudou.length > 0) {
+        await baixarEstoque(sb, ped.id);
+        try {
+          await enviarEmailsPedido(sb, ped.id);
+        } catch (e) {
+          console.error("emails do pedido:", e instanceof Error ? e.message : e);
+        }
+      }
     } else if (novo !== ped.status && !(jaPago && (novo === "pendente" || novo === "cancelado"))) {
       await sb.from("pedidos").update({ status: novo, mp_payment_id: dataId }).eq("id", ped.id);
     }
