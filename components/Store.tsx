@@ -6,6 +6,11 @@ import type { Produto } from "@/lib/data";
 const WHATS = "5519998073953";
 const IG = "asstoree_officiall";
 const FAIXA = "ASSTORE ★ STREETWEAR ★ PAGAMENTO SEGURO ★ ";
+const SLIDES = [
+  { k: "Bem-vindo", t: "ASSTORE", d: "Streetwear com a marca de quem chega primeiro.", b: "Ver peças", h: "#catalogo" },
+  { k: "Pagamento seguro", t: "PIX, CARTÃO OU BOLETO", d: "Você paga no ambiente protegido do Mercado Pago.", b: "Como comprar", h: "#como" },
+  { k: "Peças limitadas", t: "ESTOQUE CONTADO", d: "Poucas unidades por modelo. Garantiu, é seu.", b: "Ver lançamentos", h: "#lancamentos" },
+];
 
 type Item = { id: Produto["id"]; nome: string; preco: number; t: string; c: string; q: number };
 
@@ -20,7 +25,11 @@ export default function Store({ produtos }: { produtos: Produto[] }) {
   const [cat, setCat] = useState("Todos");
   const [sacola, setSacola] = useState<Item[]>([]);
   const [pronto, setPronto] = useState(false);
-  const [aberto, setAberto] = useState<"" | "sacola" | "produto">("");
+  const [aberto, setAberto] = useState<"" | "sacola" | "produto" | "menu">("");
+  const [busca, setBusca] = useState("");
+  const [buscando, setBuscando] = useState(false);
+  const [slide, setSlide] = useState(0);
+  const slidesRef = useRef<HTMLDivElement>(null);
   const [sel, setSel] = useState<Produto | null>(null);
   const [tam, setTam] = useState<string | null>(null);
   const [cor, setCor] = useState<string | null>(null);
@@ -60,6 +69,23 @@ export default function Store({ produtos }: { produtos: Produto[] }) {
     return () => window.removeEventListener("keydown", f);
   }, []);
 
+  useEffect(() => {
+    const t = setInterval(() => {
+      const el = slidesRef.current;
+      if (!el || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+      const prox = (Math.round(el.scrollLeft / el.clientWidth) + 1) % SLIDES.length;
+      el.scrollTo({ left: prox * el.clientWidth, behavior: "smooth" });
+    }, 5500);
+    return () => clearInterval(t);
+  }, []);
+
+  function irPara(c: string) {
+    setCat(c);
+    setBusca("");
+    setAberto("");
+    setTimeout(() => document.getElementById("catalogo")?.scrollIntoView({ behavior: "smooth" }), 50);
+  }
+
   function centralizar() {
     const el = scrollRef.current;
     if (!el) return;
@@ -72,7 +98,11 @@ export default function Store({ produtos }: { produtos: Produto[] }) {
 
   const imgs = sel?.imagens ?? [];
   const cats = ["Todos", ...Array.from(new Set(produtos.map((p) => p.categoria)))];
-  const lista = produtos.filter((p) => cat === "Todos" || p.categoria === cat);
+  const termo = busca.trim().toLowerCase();
+  const lista = produtos.filter((p) => (cat === "Todos" || p.categoria === cat) && (!termo || p.nome.toLowerCase().includes(termo)));
+  const novos = produtos.filter((p) => p.novo);
+  const lancamentos = (novos.length > 0 ? novos : produtos).slice(0, 10);
+  const capaCat = (c: string) => produtos.find((p) => p.categoria === c && p.imagens[0])?.imagens[0] ?? null;
   const qtd = sacola.reduce((a, i) => a + i.q, 0);
   const total = sacola.reduce((a, i) => a + i.q * i.preco, 0);
 
@@ -153,40 +183,104 @@ export default function Store({ produtos }: { produtos: Produto[] }) {
   return (
     <>
       <header>
-        <a className="brand" href="#top" aria-label="ASStore">
-          <span className="mark"><Logo /></span>
-          <span className="disp" style={{ fontSize: 20 }}>ASSTORE</span>
-        </a>
-        <nav>
-          <a href="#catalogo">Catálogo</a>
-          <a href="#como">Como comprar</a>
-          <button className="cartbtn" onClick={() => { setEtapa("sacola"); setAberto("sacola"); }}>
-            Sacola<b>{qtd}</b>
+        <div className="hbar">
+          <button className="ib" onClick={() => setAberto("menu")} aria-label="Abrir menu">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 8h16M4 16h16" /></svg>
           </button>
-        </nav>
+          <button className="ib" onClick={() => setBuscando((v) => !v)} aria-label="Buscar" aria-expanded={buscando}>
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="6.5" /><path d="M16 16l4 4" /></svg>
+          </button>
+          <a className="brand" href="#top" aria-label="ASStore">
+            <span className="mark"><Logo /></span>
+            <span className="disp">ASSTORE</span>
+          </a>
+          <button className="ib cartbtn" onClick={() => { setEtapa("sacola"); setAberto("sacola"); }} aria-label={`Sacola, ${qtd} itens`}>
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="8" width="16" height="12" rx="3" /><path d="M9 8V7a3 3 0 016 0v1" /></svg>
+            {qtd > 0 && <b>{qtd}</b>}
+          </button>
+        </div>
+        {buscando && (
+          <form className="sbar" role="search" onSubmit={(e) => { e.preventDefault(); setCat("Todos"); document.getElementById("catalogo")?.scrollIntoView({ behavior: "smooth" }); }}>
+            <input autoFocus type="search" placeholder="Buscar peças..." aria-label="Buscar peças" value={busca} maxLength={60} onChange={(e) => { setBusca(e.target.value); setCat("Todos"); }} />
+            <button className="btn" type="submit">Buscar</button>
+          </form>
+        )}
       </header>
 
       <main id="top">
         <div className="hero">
-          <h1>
-            AS<br />
-            <span>STORE</span>
-          </h1>
-          <p>Streetwear com a marca de quem chega primeiro. Escolha as peças, monte a sacola e pague com segurança.</p>
-          <a className="btn" href="#catalogo">Ver peças</a>
-          <a className="btn ghost" href={`https://instagram.com/${IG}`} target="_blank" rel="noopener noreferrer">Instagram</a>
+          <div
+            className="slides"
+            ref={slidesRef}
+            onScroll={(e) => setSlide(Math.round(e.currentTarget.scrollLeft / e.currentTarget.clientWidth))}
+          >
+            {SLIDES.map((sl) => (
+              <div className="slide" key={sl.k}>
+                <span className="kick">{sl.k}</span>
+                <h1>{sl.t}</h1>
+                <p>{sl.d}</p>
+                <a className="btn" href={sl.h}>{sl.b}</a>
+              </div>
+            ))}
+          </div>
+          <div className="dotsnav" aria-hidden="true">
+            {SLIDES.map((sl, i) => <i key={sl.k} className={i === slide ? "on" : ""} />)}
+          </div>
         </div>
+
         <div className="band" aria-hidden="true">
           <div>{FAIXA.repeat(8)}</div>
         </div>
 
+        <section id="lancamentos">
+          <h2>Lançamentos</h2>
+          <div className="rail">
+            {lancamentos.map((p) => (
+              <button key={p.id} className={`card${p.tamanhos.length === 0 ? " esg" : ""}`} onClick={() => abrirProduto(p)}>
+                <div className="ph" style={{ background: `linear-gradient(160deg,${p.cor},#000 120%)` }}>
+                  {p.tamanhos.length === 0 ? <span className="tag off">Esgotado</span> : p.novo && <span className="tag">Novo</span>}
+                  {p.imagens[0] ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={p.imagens[0]} alt={p.nome} loading="lazy" decoding="async" />
+                  ) : (
+                    <Logo />
+                  )}
+                </div>
+                <h3>{p.nome}</h3>
+                <span className="pr">{brl(p.preco)}</span>
+                <span className="pay">Pix, cartão ou boleto</span>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        {cats.length > 2 && (
+          <section id="categorias">
+            <h2>Categorias</h2>
+            <div className="rail cats">
+              {cats.filter((c) => c !== "Todos").map((c) => {
+                const img = capaCat(c);
+                return (
+                  <button key={c} className="catcard" onClick={() => irPara(c)}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    {img && <img src={img} alt="" loading="lazy" decoding="async" />}
+                    <span className="catname">{c}</span>
+                    <span className="catgo">Confira</span>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
         <section id="catalogo">
-          <h2>Catálogo</h2>
+          <h2>{termo ? `Resultados para “${busca.trim()}”` : "Catálogo"}</h2>
           <div className="chips">
             {cats.map((c) => (
               <button key={c} className="chip" aria-pressed={c === cat} onClick={() => setCat(c)}>{c}</button>
             ))}
           </div>
+          {lista.length === 0 && <p className="empty">Nenhuma peça encontrada.</p>}
           <div className="grid">
             {lista.map((p) => (
               <button key={p.id} className={`card${p.tamanhos.length === 0 ? " esg" : ""}`} onClick={() => abrirProduto(p)}>
@@ -229,6 +323,22 @@ export default function Store({ produtos }: { produtos: Produto[] }) {
             <li><b>Receba em casa</b><span>Pagamento aprovado, a gente separa e envia o seu pedido.</span></li>
           </ol>
         </section>
+
+        <section id="pagamento">
+          <h2>Formas de pagamento</h2>
+          <div className="paybox">
+            <ul className="methods" aria-label="Formas de pagamento aceitas">
+              <li><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"><path d="M12 3l4 4-4 4-4-4 4-4zM12 13l4 4-4 4-4-4 4-4zM3 12l4-4M21 12l-4-4M3 12l4 4M21 12l-4 4" /></svg>Pix</li>
+              <li><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="3" y="6" width="18" height="12" rx="3" /><path d="M3 10h18" /></svg>Cartão de crédito</li>
+              <li><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M5 5v14M8 5v14M12 5v14M15 5v14M19 5v14" /></svg>Boleto</li>
+            </ul>
+            <ul className="trust">
+              <li><b>Ambiente protegido</b><span>O pagamento acontece dentro do Mercado Pago. Nós não recebemos nem guardamos dados do seu cartão.</span></li>
+              <li><b>Conexão criptografada</b><span>Todo o site funciona em HTTPS.</span></li>
+              <li><b>Preço sempre conferido</b><span>O valor final é recalculado no servidor antes do pagamento.</span></li>
+            </ul>
+          </div>
+        </section>
       </main>
 
       <footer>
@@ -237,6 +347,20 @@ export default function Store({ produtos }: { produtos: Produto[] }) {
       </footer>
 
       {aberto && <div className="ov" onClick={() => setAberto("")} />}
+
+      {aberto === "menu" && (
+        <aside className="panel" id="menu" aria-label="Menu">
+          <button className="x" onClick={() => setAberto("")} aria-label="Fechar">×</button>
+          <h2 style={{ fontSize: 32 }}>Menu</h2>
+          <nav className="mnav">
+            {cats.map((c) => <button key={c} onClick={() => irPara(c)}>{c}</button>)}
+            <a href="#como" onClick={() => setAberto("")}>Como comprar</a>
+            <a href="#pagamento" onClick={() => setAberto("")}>Formas de pagamento</a>
+            <a href={`https://wa.me/${WHATS}`} target="_blank" rel="noopener noreferrer">WhatsApp</a>
+            <a href={`https://instagram.com/${IG}`} target="_blank" rel="noopener noreferrer">Instagram</a>
+          </nav>
+        </aside>
+      )}
 
       {aberto === "produto" && sel && (
         <div className="panel" id="modal" role="dialog" aria-label={sel.nome}>
